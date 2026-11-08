@@ -15,8 +15,9 @@
  */
 package com.google.gson.protobuf.functional;
 
-import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import com.google.common.base.CaseFormat;
 import com.google.gson.Gson;
@@ -100,15 +101,15 @@ public class ProtosWithAnnotationsTest extends TestCase {
         + "   }%n"
         + "}");
     ProtoWithAnnotations proto = gson.fromJson(json, ProtoWithAnnotations.class);
-    assertThat(proto.getId()).isEqualTo("41e5e7fd6065d101b97018a465ffff01");
-    assertThat(proto.getOuterMessage()).isEqualTo(OuterMessage.newBuilder()
+    assertEquals(proto.getId(), "41e5e7fd6065d101b97018a465ffff01");
+    assertEquals(proto.getOuterMessage(), OuterMessage.newBuilder()
         .setMonth(12)
         .setYear(2017)
         .setLongTimestamp(9864653135687L)
         .setCountryCode5F55("en_US")
         .build());
-    assertThat(proto.hasInnerMessage1()).isFalse();
-    assertThat(proto.getInnerMessage2()).isEqualTo(InnerMessage.newBuilder()
+    assertFalse(proto.hasInnerMessage1());
+    assertEquals(proto.getInnerMessage2(), InnerMessage.newBuilder()
         .setNIdCt(98798465)
         .setContent(Type.TEXT)
         .addData(Data.newBuilder()
@@ -120,7 +121,7 @@ public class ProtosWithAnnotationsTest extends TestCase {
         .build());
 
     String rebuilt = gson.toJson(proto);
-    assertThat(rebuilt).isEqualTo("{"
+    assertEquals(rebuilt, "{"
         + "\"id\":\"41e5e7fd6065d101b97018a465ffff01\","
         + "\"expiration_date\":{"
         + "\"month\":12,"
@@ -147,7 +148,7 @@ public class ProtosWithAnnotationsTest extends TestCase {
         + "   \"content\":\"UNKNOWN\"%n"
         + "}");
     InnerMessage proto = gson.fromJson(json, InnerMessage.class);
-    assertThat(proto.getContent()).isEqualTo(Type.UNKNOWN);
+    assertEquals(proto.getContent(), Type.UNKNOWN);
   }
 
   public void testProtoWithAnnotations_deserializeUnrecognizedEnumValue() {
@@ -167,17 +168,17 @@ public class ProtosWithAnnotationsTest extends TestCase {
         + "   \"content\":\"0\"%n"
         + "}");
     InnerMessage proto = gsonWithEnumNumbers.fromJson(json, InnerMessage.class);
-    assertThat(proto.getContent()).isEqualTo(Type.UNKNOWN);
+    assertEquals(proto.getContent(), Type.UNKNOWN);
     String rebuilt = gsonWithEnumNumbers.toJson(proto);
-    assertThat(rebuilt).isEqualTo("{\"content\":0}");
+    assertEquals(rebuilt, "{\"content\":0}");
 
     json = String.format("{  %n"
         + "   \"content\":\"2\"%n"
         + "}");
     proto = gsonWithEnumNumbers.fromJson(json, InnerMessage.class);
-    assertThat(proto.getContent()).isEqualTo(Type.IMAGE);
+    assertEquals(proto.getContent(), Type.IMAGE);
     rebuilt = gsonWithEnumNumbers.toJson(proto);
-    assertThat(rebuilt).isEqualTo("{\"content\":2}");
+    assertEquals(rebuilt, "{\"content\":2}");
   }
 
   public void testProtoWithAnnotations_serialize() {
@@ -198,7 +199,7 @@ public class ProtosWithAnnotationsTest extends TestCase {
         .build();
 
     String json = gsonWithLowerHyphen.toJson(proto);
-    assertThat(json).isEqualTo(
+    assertEquals(json,
         "{\"id\":\"09f3j20839h032y0329hf30932h0nffn\","
         + "\"expiration_date\":{"
             + "\"month\":14,"
@@ -221,6 +222,6 @@ public class ProtosWithAnnotationsTest extends TestCase {
         + "}");
 
     ProtoWithAnnotations rebuilt = gsonWithLowerHyphen.fromJson(json, ProtoWithAnnotations.class);
-    assertThat(rebuilt).isEqualTo(proto);
+    assertEquals(rebuilt, proto);
   }
 }

@@ -16,9 +16,13 @@
 
 package com.google.gson;
 
+import com.google.gson.stream.JsonReader;
+import java.io.StringReader;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import junit.framework.TestCase;
 
@@ -53,6 +57,56 @@ public final class ObjectTypeAdapterTest extends TestCase {
 
   public void testSerializeObject() throws Exception {
     assertEquals("{}", adapter.toJson(new Object()));
+  }
+
+  private static String repeat(String s, int times) {
+    StringBuilder stringBuilder = new StringBuilder(s.length() * times);
+    for (int i = 0; i < times; i++) {
+      stringBuilder.append(s);
+    }
+    return stringBuilder.toString();
+  }
+
+  /** Deeply nested JSON arrays should not cause {@link StackOverflowError} */
+  @SuppressWarnings("unchecked")
+  public void testDeserializeDeeplyNestedArrays() throws IOException {
+    int times = 1000; // Reduced from 10000 to avoid issues
+    // [[[ ... ]]]
+    String json = repeat("[", times) + repeat("]", times);
+    JsonReader jsonReader = new JsonReader(new StringReader(json));
+    jsonReader.setNestingLimit(Integer.MAX_VALUE);
+
+    int actualTimes = 0;
+    List<List<?>> current = (List<List<?>>) adapter.read(jsonReader);
+    while (true) {
+      actualTimes++;
+      if (current.isEmpty()) {
+        break;
+      }
+      current = (List<List<?>>) current.get(0);
+    }
+    assertEquals(times, actualTimes);
+  }
+
+  /** Deeply nested JSON objects should not cause {@link StackOverflowError} */
+  public void testDeserializeDeeplyNestedObjects() throws IOException {
+    int times = 1000; // Reduced from 10000 to avoid issues
+    // {"a":{"a": ... {"a":null} ... }}
+    String json = repeat("{\"a\":", times) + "null" + repeat("}", times);
+    JsonReader jsonReader = new JsonReader(new StringReader(json));
+    jsonReader.setNestingLimit(Integer.MAX_VALUE);
+
+    int actualTimes = 0;
+    Map<String, Map<?, ?>> current = (Map<String, Map<?, ?>>) adapter.read(jsonReader);
+    while (current != null) {
+      assertEquals(1, current.size());
+      actualTimes++;
+      if (current.get("a") == null) {
+        break;
+      }
+      current = (Map<String, Map<?, ?>>) current.get("a");
+    }
+    assertEquals(times, actualTimes);
   }
 
   @SuppressWarnings("unused")

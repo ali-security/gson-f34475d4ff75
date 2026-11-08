@@ -24,6 +24,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.MalformedJsonException;
 import com.google.gson.common.TestTypes.ArrayOfObjects;
 import com.google.gson.common.TestTypes.BagOfPrimitiveWrappers;
 import com.google.gson.common.TestTypes.BagOfPrimitives;
@@ -494,6 +496,39 @@ public class ObjectTest extends TestCase {
     } else {
       assertEquals("{\"map\":{\"date\":\"Dec 31, 1969 4:00:00 PM\"}}", gson.toJson(a));
     }
+  }
+
+  private static String repeat(String s, int times) {
+    StringBuilder stringBuilder = new StringBuilder(s.length() * times);
+    for (int i = 0; i < times; i++) {
+      stringBuilder.append(s);
+    }
+    return stringBuilder.toString();
+  }
+
+  public void testDeeplyNested() {
+    int defaultLimit = 255;
+    // json = {"r":{"r": ... {"r":null} ... }}
+    String json = repeat("{\"r\":", defaultLimit) + "null" + repeat("}", defaultLimit);
+    RecursiveClass deserialized = gson.fromJson(json, RecursiveClass.class);
+    assertNotNull(deserialized);
+    assertNotNull(deserialized.r);
+
+    // json = {"r":{"r": ... {"r":null} ... }}
+    String json2 = repeat("{\"r\":", defaultLimit + 1) + "null" + repeat("}", defaultLimit + 1);
+    try {
+      gson.fromJson(json2, RecursiveClass.class);
+      fail("Expected JsonSyntaxException");
+    } catch (JsonSyntaxException e) {
+      assertTrue(e.getCause() instanceof MalformedJsonException);
+      assertEquals(
+        "Nesting limit 255 reached at line 1 column 1277 path $" + repeat(".r", defaultLimit), 
+        e.getCause().getMessage()); 
+    }
+  }
+
+  private static class RecursiveClass {
+    RecursiveClass r;
   }
 
   public class HasObjectMap {

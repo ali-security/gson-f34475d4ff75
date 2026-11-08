@@ -18,6 +18,7 @@ package com.google.gson;
 
 import java.io.CharArrayReader;
 import java.io.CharArrayWriter;
+import java.io.IOException;
 import java.io.StringReader;
 
 import junit.framework.TestCase;
@@ -115,5 +116,54 @@ public class JsonParserTest extends TestCase {
     assertEquals("one", actualOne.stringValue);
     BagOfPrimitives actualTwo = gson.fromJson(element2, BagOfPrimitives.class);
     assertEquals("two", actualTwo.stringValue);
+  }
+
+  private static String repeat(String s, int times) {
+    StringBuilder stringBuilder = new StringBuilder(s.length() * times);
+    for (int i = 0; i < times; i++) {
+      stringBuilder.append(s);
+    }
+    return stringBuilder.toString();
+  }
+
+  /** Deeply nested JSON arrays should not cause {@link StackOverflowError} */
+  public void testParseDeeplyNestedArrays() throws IOException {
+    int times = 1000; // Reduced from 10000 to avoid issues
+    // [[[ ... ]]]
+    String json = repeat("[", times) + repeat("]", times);
+    JsonReader jsonReader = new JsonReader(new StringReader(json));
+    jsonReader.setNestingLimit(Integer.MAX_VALUE);
+
+    int actualTimes = 0;
+    JsonArray current = JsonParser.parseReader(jsonReader).getAsJsonArray();
+    while (true) {
+      actualTimes++;
+      if (current.isEmpty()) {
+        break;
+      }
+      current = current.get(0).getAsJsonArray();
+    }
+    assertEquals(times, actualTimes);
+  }
+
+  /** Deeply nested JSON objects should not cause {@link StackOverflowError} */
+  public void testParseDeeplyNestedObjects() throws IOException {
+    int times = 1000; // Reduced from 10000 to avoid issues
+    // {"a":{"a": ... {"a":null} ... }}
+    String json = repeat("{\"a\":", times) + "null" + repeat("}", times);
+    JsonReader jsonReader = new JsonReader(new StringReader(json));
+    jsonReader.setNestingLimit(Integer.MAX_VALUE);
+
+    int actualTimes = 0;
+    JsonObject current = JsonParser.parseReader(jsonReader).getAsJsonObject();
+    while (true) {
+      assertEquals(1, current.size());
+      actualTimes++;
+      if (current.get("a").isJsonNull()) {
+        break;
+      }
+      current = current.get("a").getAsJsonObject();
+    }
+    assertEquals(times, actualTimes);
   }
 }

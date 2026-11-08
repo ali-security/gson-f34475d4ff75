@@ -32,6 +32,7 @@ import static com.google.gson.stream.JsonToken.NAME;
 import static com.google.gson.stream.JsonToken.NULL;
 import static com.google.gson.stream.JsonToken.NUMBER;
 import static com.google.gson.stream.JsonToken.STRING;
+import static org.junit.Assert.assertThrows;
 
 @SuppressWarnings("resource")
 public final class JsonReaderTest extends TestCase {
@@ -1813,6 +1814,109 @@ public final class JsonReaderTest extends TestCase {
       } else {
         throw new AssertionError();
       }
+    }
+  }
+
+  private static String repeat(String s, int times) {
+    StringBuilder stringBuilder = new StringBuilder(s.length() * times);
+    for (int i = 0; i < times; i++) {
+      stringBuilder.append(s);
+    }
+    return stringBuilder.toString();
+  }
+
+  public void testNestingLimitDefault() throws IOException {
+    int defaultLimit = JsonReader.DEFAULT_NESTING_LIMIT;
+    String json = repeat('[', defaultLimit + 1);
+    JsonReader reader = new JsonReader(reader(json));
+    assertEquals(reader.getNestingLimit(), defaultLimit);
+
+    for (int i = 0; i < defaultLimit; i++) {
+      reader.beginArray();
+    }
+    try {
+      reader.beginArray();
+      fail("Expected MalformedJsonException");
+    } catch (MalformedJsonException e) {
+      assertEquals(e.getMessage(), 
+      "Nesting limit "
+                  + defaultLimit
+                  + " reached at line 1 column "
+                  + (defaultLimit + 2)
+                  + " path $"
+                  + repeat("[0]", defaultLimit));
+    }
+  }
+
+  // Note: The column number reported in the expected exception messages is slightly off and points
+  // behind instead of directly at the '[' or '{'
+  public void testNestingLimit() throws IOException {
+    JsonReader reader = new JsonReader(reader("[{\"a\":1}]"));
+    reader.setNestingLimit(2);
+    assertEquals(reader.getNestingLimit(), 2);
+    reader.beginArray();
+    reader.beginObject();
+    assertEquals(reader.nextName(), "a");
+    assertEquals(reader.nextInt(), 1);
+    reader.endObject();
+    reader.endArray();
+
+    JsonReader reader2 = new JsonReader(reader("[{\"a\":[]}]"));
+    reader2.setNestingLimit(2);
+    reader2.beginArray();
+    reader2.beginObject();
+    assertEquals(reader2.nextName(), "a");
+    try {
+      reader2.beginArray();
+      fail("Expected MalformedJsonException");
+    } catch (MalformedJsonException e) {
+      assertEquals(e.getMessage(), "Nesting limit 2 reached at line 1 column 8 path $[0].a");
+    }
+
+    JsonReader reader3 = new JsonReader(reader("[]"));
+    reader3.setNestingLimit(0);
+    try {
+      reader3.beginArray();
+      fail("Expected MalformedJsonException");
+    } catch (MalformedJsonException e) {
+      assertEquals(e.getMessage(), "Nesting limit 0 reached at line 1 column 2 path $");
+    }
+
+    JsonReader reader4 = new JsonReader(reader("[]"));
+    reader4.setNestingLimit(0);
+    // Currently also checked when skipping values
+    try {
+      reader4.skipValue();
+      fail("Expected MalformedJsonException");
+    } catch (MalformedJsonException e) {
+      assertEquals(e.getMessage(), "Nesting limit 0 reached at line 1 column 2 path $");
+    }
+
+    JsonReader reader5 = new JsonReader(reader("1"));
+    reader5.setNestingLimit(0);
+    // Reading value other than array or object should be allowed
+    assertEquals(reader5.nextInt(), 1);
+
+    // Test multiple top-level arrays
+    JsonReader reader6 = new JsonReader(reader("[] [[]]"));
+    reader6.setLenient(true);
+    reader6.setNestingLimit(1);
+    reader6.beginArray();
+    reader6.endArray();
+    reader6.beginArray();
+    try {
+      reader6.beginArray();
+      fail("Expected MalformedJsonException");
+    } catch (MalformedJsonException e) {
+      assertEquals(e.getMessage(), "Nesting limit 1 reached at line 1 column 6 path $[0]");
+    }
+
+    JsonReader reader7 = new JsonReader(reader("[]"));
+    try {
+      reader7.setNestingLimit(-1);
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException e) {
+      assertEquals(e.getMessage(), "Invalid nesting limit: -1");
     }
   }
 
